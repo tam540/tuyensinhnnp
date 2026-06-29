@@ -165,29 +165,42 @@
         btn.innerText = "ĐĂNG KÝ & THANH TOÁN"; btn.disabled = false; return;
     }
 
-    // Dùng fetch gửi dữ liệu ngầm về Google Sheet (Đã tối ưu chống lỗi CORS)
-    fetch(WEB_APP_URL, {
-      redirect: "follow", // Bắt buộc để trình duyệt đi theo luồng bảo mật của Google
-      method: "POST",
-      headers: {
-        "Content-Type": "text/plain;charset=utf-8", 
-      },
-      body: JSON.stringify(data)
-    })
-    .then(response => response.json())
-    .then(res => {
+    // Dùng fetch gửi dữ liệu ngầm về Google Sheet (Đã tối ưu CORS & Error Handling)
+  fetch(WEB_APP_URL, {
+    redirect: "follow", 
+    method: "POST",
+    headers: {
+      "Content-Type": "text/plain;charset=utf-8",
+    },
+    body: JSON.stringify(data)
+  })
+  .then(response => {
+    // Đọc dưới dạng Text trước, không ép JSON vội để tránh lỗi parse HTML của Google
+    if (!response.ok) throw new Error("HTTP Status: " + response.status);
+    return response.text(); 
+  })
+  .then(text => {
+    try {
+      // Ép kiểu JSON an toàn
+      const res = JSON.parse(text); 
       if (res.success) {
         goToQrStep(res);
       } else {
         alert("❌ Đăng ký thất bại: " + res.message);
         btn.innerText = "ĐĂNG KÝ & THANH TOÁN"; btn.disabled = false;
       }
-    })
-    .catch(err => {
-      console.error(err);
-      alert("Lỗi kết nối mạng hoặc hệ thống đang bận. Vui lòng thử lại!");
+    } catch (parseError) {
+      // NẾU RƠI VÀO ĐÂY: Có nghĩa là Apps Script trả về lỗi nội bộ (Trang HTML lỗi)
+      console.error("Dữ liệu lỗi Google trả về:", text);
+      alert("Hệ thống Google Apps Script chưa được cấp đủ quyền hoặc chưa cập nhật 'Phiên bản mới'. Vui lòng nhấn F12 để xem chi tiết lỗi!");
       btn.innerText = "ĐĂNG KÝ & THANH TOÁN"; btn.disabled = false;
-    });
+    }
+  })
+  .catch(err => {
+    console.error("Lỗi Fetch Mạng:", err);
+    alert("Lỗi kết nối mạng cục bộ. Vui lòng kiểm tra Wifi/4G và thử lại!");
+    btn.innerText = "ĐĂNG KÝ & THANH TOÁN"; btn.disabled = false;
+  });
   function goToQrStep(res) {
     currentQrUrl = res.qrUrl;
     document.getElementById('formSection').style.display = 'none'; 
